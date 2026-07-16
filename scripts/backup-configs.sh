@@ -20,7 +20,10 @@ pct pull 100 /opt/apps/traefik/traefik.yml "$REPO_DIR/lxc-apps/traefik/traefik.y
 pct pull 100 /opt/apps/immich/docker-compose.yml "$REPO_DIR/lxc-apps/immich/docker-compose.yml"
 pct pull 100 /opt/apps/paperless/docker-compose.yml "$REPO_DIR/lxc-apps/paperless/docker-compose.yml"
 pct pull 100 /opt/mediastack/docker-compose.yml "$REPO_DIR/lxc-apps/mediastack/docker-compose.yml"
-
+pct pull 100 /opt/apps/sparkyfitness/docker-compose.yml "$REPO_DIR/lxc-apps/sparkyfitness/docker-compose.yml"
+pct pull 100 /opt/apps/uptimeKuma/docker-compose.yml "$REPO_DIR/lxc-apps/uptimeKuma/docker-compose.yml"
+pct pull 100 /opt/apps/portainer/docker-compose.yml "$REPO_DIR/lxc-apps/portainer/docker-compose.yml"
+pct pull 100 /opt/apps/watchtower/docker-compose.yml "$REPO_DIR/lxc-apps/watchtower/docker-compose.yml"
 # LXC 104 (LLM)
 pct pull 104 /root/odysseus/docker-compose.yml "$REPO_DIR/lxc-llm/docker-compose.yml"
 

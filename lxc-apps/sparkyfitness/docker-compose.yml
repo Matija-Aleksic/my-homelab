@@ -1,0 +1,58 @@
+services:
+  sparkyfitness-db:
+    image: postgres:15-alpine
+    container_name: sparkyfitness-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SPARKY_FITNESS_DB_NAME:-sparkyfitness_db}
+      POSTGRES_USER: ${SPARKY_FITNESS_DB_USER:-sparky_admin}
+      POSTGRES_PASSWORD: ${SPARKY_FITNESS_DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_bridge
+
+  sparkyfitness-server:
+    image: ghcr.io/codewithcj/sparkyfitness-server:latest
+    container_name: sparkyfitness-server
+    restart: unless-stopped
+    depends_on:
+      - sparkyfitness-db
+    env_file: .env
+    volumes:
+      - uploads_data:/app/uploads
+      - backups_data:/app/backups
+    networks:
+      - internal_bridge
+      - proxy # <-- ADDED: Now the server bridges the gap to the frontend
+
+  sparkyfitness-frontend:
+    image: ghcr.io/codewithcj/sparkyfitness-frontend:latest
+    container_name: sparkyfitness-frontend
+    restart: unless-stopped
+    ports:
+      - "8089:80"
+    depends_on:
+      - sparkyfitness-server
+    env_file: .env
+    networks:
+      - proxy # <-- FIXED: Frontend is now ONLY on the proxy network (like Seerr)
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.sparkyfitness.rule=Host(`sparky.mojserver.uk`)"
+      - "traefik.http.routers.sparkyfitness.entrypoints=web"
+      - "traefik.http.routers.sparkyfitness.middlewares=secure-headers@file"
+      # ADD THESE TWO LINES:
+      - "traefik.http.services.sparkyfitness.loadbalancer.server.port=80"
+      - "traefik.http.services.sparkyfitness.loadbalancer.passhostheader=true"
+
+volumes:
+  postgres_data:
+  uploads_data:
+  backups_data:
+
+networks:
+  internal_bridge:
+  proxy:
+    external: true

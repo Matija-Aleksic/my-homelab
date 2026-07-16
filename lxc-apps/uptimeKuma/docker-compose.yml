@@ -1,0 +1,22 @@
+services:
+    uptime-kuma:
+        image: louislam/uptime-kuma:2
+        container_name: uptime-kuma
+        restart: always
+        ports:
+            - "3001:3001"
+        volumes:
+            - ./data:/app/data
+        environment:
+            - TZ=UTC
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3001"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+        networks:
+            - kuma_network
+
+networks:
+    kuma_network:
+        driver: bridge
