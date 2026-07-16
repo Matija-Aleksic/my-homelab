@@ -1,0 +1,13 @@
+**/data/
+**/db/
+**/pgData/
+**/cache/
+**/letsencrypt/
+**/*.db
+**/*.sqlite
+**/acme.json
+**/*.key
+**/*.pem
+**/.env
+**/*.bak
+**/*.log
