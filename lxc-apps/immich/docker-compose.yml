@@ -1,0 +1,134 @@
+services:
+
+  immich-server:
+
+    image: ghcr.io/immich-app/immich-server:release
+
+    container_name: immich_server
+
+    restart: unless-stopped
+
+    ports:
+
+      - "2283:2283" # Exposed locally to bypass reverse proxy
+
+    volumes:
+
+      # Mapped to your existing TrueNAS uploads and library dataset
+
+      - /mnt/configs/immich/data:/usr/src/app/upload
+
+      # Read-only access to your main media pool for External Libraries
+
+      - /mnt/storage/media:/mnt/media:ro
+
+      - /etc/localtime:/etc/localtime:ro
+
+    environment:
+
+      - DB_HOSTNAME=immich_postgres
+
+      - DB_USERNAME=immich
+
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+
+      - DB_DATABASE_NAME=immich
+
+      - REDIS_HOSTNAME=immich_redis
+
+    devices:
+
+      - /dev/dri:/dev/dri # Enables Intel GPU hardware transcoding (mapped in your LXC)
+
+    networks:
+
+      - immich_net
+
+    depends_on:
+
+      - redis
+
+      - database
+
+
+
+  immich-machine-learning:
+
+    image: ghcr.io/immich-app/immich-machine-learning:release
+
+    container_name: immich_machine_learning
+
+    restart: unless-stopped
+
+    volumes:
+
+      - immich-model-cache:/cache
+
+    environment:
+
+      - /etc/localtime:/etc/localtime:ro
+
+    networks:
+
+      - immich_net
+
+
+
+  redis:
+
+    image: registry.hub.docker.com/library/redis:6.2-alpine
+
+    container_name: immich_redis
+
+    restart: unless-stopped
+
+    networks:
+
+      - immich_net
+
+
+
+  database:
+
+    # TrueNAS usually pairs this with pgvecto-rs pg16.
+
+    # Change 'pg16' to 'pg15' if PG_VERSION from the step above returned 15.
+
+    image: ghcr.io/immich-app/postgres:18-vectorchord0.5.3-pgvector0.8.1
+
+    container_name: immich_postgres
+
+    restart: unless-stopped
+
+    environment:
+
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+
+      - POSTGRES_USER=immich
+
+      - POSTGRES_DB=immich
+
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - PGDATA=/var/lib/postgresql/data
+    volumes:
+
+      # Pointed directly to the TrueNAS deep nested database directory
+
+      - /mnt/configs/immich/pgData/18/docker:/var/lib/postgresql/data
+
+    networks:
+
+      - immich_net
+
+
+
+volumes:
+
+  immich-model-cache:
+
+
+
+networks:
+
+  immich_net:
+

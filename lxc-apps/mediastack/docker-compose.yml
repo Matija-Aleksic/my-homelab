@@ -1,0 +1,284 @@
+services:
+    plex:
+        image: lscr.io/linuxserver/plex:latest
+        container_name: plex
+        network_mode: host
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+            - VERSION=docker
+        volumes:
+            - /opt/mediastack/config/plex:/config
+            - /mnt/storage:/data
+            - /dev/shm:/transcode
+        deploy:
+            resources:
+                limits:
+                    memory: 600M
+        restart: unless-stopped
+
+    jellyfin:
+        image: lscr.io/linuxserver/jellyfin:latest
+        container_name: jellyfin
+        network_mode: host
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/jellyfin:/config
+            - /opt/mediastack/config/jellyfin/jellyfin-init.sh:/custom-cont-init.d/jellyfin-init.sh:ro
+            - /mnt/storage:/data
+        tmpfs:
+            - /transcode:size=5G,mode=0777
+            - /config/data/data/subtitles:size=2G,mode=0777
+        devices:
+            - /dev/dri:/dev/dri
+        group_add:
+            - "993"
+            - "44"
+        restart: unless-stopped
+
+    qbittorrent:
+        image: lscr.io/linuxserver/qbittorrent:latest
+        container_name: qbittorrent
+        ports:
+            - "8080:8080"
+            - "6881:6881"
+            - "6881:6881/udp"
+        networks:
+            - proxy
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/qbittorrent:/config
+            - /mnt/storage:/data
+        labels:
+            - "traefik.enable=false"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.qbittorrent.rule=Host(`torrent.mojserver.uk`)"
+            - "traefik.http.routers.qbittorrent.entrypoints=web"
+            - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+        restart: unless-stopped
+
+    radarr:
+        image: lscr.io/linuxserver/radarr:latest
+        container_name: radarr
+        ports:
+            - "7878:7878"
+        networks:
+            - proxy
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/radarr:/config
+            - /mnt/storage:/data
+        labels:
+            - "traefik.enable=false"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.radarr.rule=Host(`radarr.mojserver.uk`)"
+            - "traefik.http.routers.radarr.entrypoints=web"
+            - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+        deploy:
+            resources:
+                limits:
+                    memory: 300M
+        restart: unless-stopped
+
+    sonarr:
+        image: lscr.io/linuxserver/sonarr:latest
+        container_name: sonarr
+        ports:
+            - "8989:8989"
+        networks:
+            - proxy
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/sonarr:/config
+            - /mnt/storage:/data
+        labels:
+            - "traefik.enable=false"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.sonarr.rule=Host(`sonarr.mojserver.uk`)"
+            - "traefik.http.routers.sonarr.entrypoints=web"
+            - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+        deploy:
+            resources:
+                limits:
+                    memory: 300M
+        restart: unless-stopped
+
+    prowlarr:
+        image: lscr.io/linuxserver/prowlarr:latest
+        container_name: prowlarr
+        ports:
+            - "9696:9696"
+        networks:
+            - proxy
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/prowlarr:/config
+        labels:
+            - "traefik.enable=false"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.mojserver.uk`)"
+            - "traefik.http.routers.prowlarr.entrypoints=web"
+            - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+        deploy:
+            resources:
+                limits:
+                    memory: 150M
+        restart: unless-stopped
+
+    bazarr:
+        image: lscr.io/linuxserver/bazarr:latest
+        container_name: bazarr
+        ports:
+            - "6767:6767"
+        networks:
+            - proxy
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Zagreb
+        volumes:
+            - /opt/mediastack/config/bazarr:/config
+            - /mnt/storage:/data
+        labels:
+            - "traefik.enable=false"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.bazarr.rule=Host(`bazarr.mojserver.uk`)"
+            - "traefik.http.routers.bazarr.entrypoints=web"
+            - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+        deploy:
+            resources:
+                limits:
+                    memory: 150M
+        restart: unless-stopped
+
+    seerr:
+        image: ghcr.io/seerr-team/seerr:latest
+        container_name: seerr
+        ports:
+            - "5055:5055"
+        networks:
+            - proxy
+        volumes:
+            - /opt/mediastack/config/seerr:/app/config
+        labels:
+            - "traefik.enable=true"
+            - "traefik.docker.network=proxy"
+            - "traefik.http.routers.seerr.rule=Host(`seerr.mojserver.uk`)"
+            - "traefik.http.routers.seerr.entrypoints=web"
+            - "traefik.http.services.seerr.loadbalancer.server.port=5055"
+        deploy:
+            resources:
+                limits:
+                    memory: 350M
+        restart: unless-stopped
+
+
+    profilarr:
+         image: ghcr.io/dictionarry-hub/profilarr:latest
+         container_name: profilarr
+         ports:
+             - "6868:6868"
+         networks:
+             - proxy
+         environment:
+             - PUID=1000
+             - PGID=1000
+             - TZ=Europe/Zagreb
+             - PARSER_HOST=parser
+             - PARSER_PORT=5000
+             # - ORIGIN=https://profilarr.mojserver.uk
+         volumes:
+             - /opt/mediastack/config/profilarr:/config
+         depends_on:
+             parser:
+                 condition: service_healthy
+         labels:
+             - "traefik.enable=false"
+             - "traefik.docker.network=proxy"
+             - "traefik.http.routers.profilarr.rule=Host(`profilarr.mojserver.uk`)"
+             - "traefik.http.routers.profilarr.entrypoints=web"
+             - "traefik.http.services.profilarr.loadbalancer.server.port=6868"
+         restart: unless-stopped
+
+    parser:
+         image: ghcr.io/dictionarry-hub/profilarr-parser:latest
+         container_name: profilarr-parser
+         networks:
+             - proxy
+         expose:
+             - "5000"
+         restart: unless-stopped
+#    tdarr:
+#        image: ghcr.io/haveagitgat/tdarr:latest
+#        container_name: tdarr
+#        ports:
+#            - "8265:8265"
+#            - "8266:8266"
+#        networks:
+#            - proxy
+#        environment:
+#            - PUID=1000
+#            - PGID=1000
+#            - TZ=Europe/Zagreb
+#            - serverIP=0.0.0.0
+#            - serverPort=8266
+#            - webUIPort=8265
+#            - internalNode=false
+#        volumes:
+#            - /opt/mediastack/config/tdarr/server:/app/server
+#            - /opt/mediastack/config/tdarr/configs:/app/configs
+#            - /opt/mediastack/config/tdarr/logs:/app/logs
+#            - /mnt/storage:/data
+#            - /opt/mediastack/cache/tdarr:/temp
+#        labels:
+#            - "traefik.enable=false"
+#            - "traefik.docker.network=proxy"
+#            - "traefik.http.routers.tdarr.rule=Host(`tdarr.mojserver.uk`)"
+#            - "traefik.http.routers.tdarr.entrypoints=web"
+#            - "traefik.http.services.tdarr.loadbalancer.server.port=8265"
+#        restart: unless-stopped
+
+#    tdarr-node:
+#        image: ghcr.io/haveagitgat/tdarr_node:latest
+#        container_name: tdarr-node
+#        networks:
+#            - proxy
+#        environment:
+#            - PUID=1000
+#            - PGID=1000
+#            - TZ=Europe/Zagreb
+#            - nodeName=LocalHWNode
+#            - serverIP=tdarr
+#            - serverPort=8266
+#            - inContainer=true
+#        volumes:
+#            - /opt/mediastack/config/tdarr/configs:/app/configs
+#            - /opt/mediastack/config/tdarr/logs:/app/logs
+#            - /mnt/storage:/data
+#            - /opt/mediastack/cache/tdarr:/temp
+#        devices:
+#            - /dev/dri:/dev/dri
+#        group_add:
+#            - "993"
+#            - "44"
+#        restart: unless-stopped
+
+networks:
+    proxy:
+        external: true

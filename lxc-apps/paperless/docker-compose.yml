@@ -1,0 +1,68 @@
+services:
+  broker:
+    image: docker.io/library/redis:7
+    container_name: paperless_redis
+    restart: unless-stopped
+    networks:
+      - paperless_net
+
+  db:
+    # Change to match the exact PG_VERSION check if needed (e.g. postgres:16)
+    image: docker.io/library/postgres:18
+    container_name: paperless_postgres
+    restart: unless-stopped
+    volumes:
+      # Pointed directly to the TrueNAS deep nested database directory
+      - /mnt/configs/paperless/db/18/docker:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASS:-paperless}
+      - PGDATA=/var/lib/postgresql/data # ADD THIS LINE to bypass the 18+ directory check!
+    networks:
+      - paperless_net
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless_webserver
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    ports:
+    - "8934:8000" # Added for local IP access!
+    volumes:
+      # TrueNAS application paths for Paperless
+      - /mnt/configs/paperless/data:/usr/src/paperless/data
+      - /mnt/configs/paperless/media:/usr/src/paperless/media
+      - /mnt/configs/paperless/consume:/usr/src/paperless/consume
+      - /mnt/configs/paperless/trash:/usr/src/paperless/trash
+    environment:
+      - PAPERLESS_REDIS=redis://broker:6379
+      - PAPERLESS_DBHOST=db
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASS:-paperless}
+      - PAPERLESS_TIME_ZONE=Europe/Zagreb
+      - PAPERLESS_URL=https://paperless.mojserver.uk
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY:-change_this_to_any_random_string_if_unknown}
+      # Aligns container processes to permissions (PUID 1000)
+      - USERMAP_UID=1000
+      - USERMAP_GID=1000
+      - PAPERLESS_OCR_LANGUAGES=hrv
+      - PAPERLESS_OCR_LANGUAGE=hrv+eng
+    networks:
+      - proxy
+      - paperless_net
+    labels:
+      - "traefik.enable=false"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.paperless.rule=Host(`paperless.mojserver.uk`)"
+      - "traefik.http.routers.paperless.entrypoints=web"
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+
+networks:
+  proxy:
+    external: true
+  paperless_net:
+    internal: true
