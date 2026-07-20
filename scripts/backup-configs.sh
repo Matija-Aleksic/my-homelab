@@ -21,6 +21,7 @@ pct pull 102 /root/portainer/docker-compose.yml "$REPO_DIR/lxc-network/portainer
 echo "Syncing LXC 100 (Apps) configs..."
 pct pull 100 /opt/apps/traefik/docker-compose.yml "$REPO_DIR/lxc-apps/traefik/docker-compose.yml"
 pct pull 100 /opt/apps/traefik/traefik.yml "$REPO_DIR/lxc-apps/traefik/traefik.yml"
+pct pull 100 /opt/apps/traefik/config/dynamic.yml "$REPO_DIR/lxc-apps/traefik/config/dynamic.yml"
 pct pull 100 /opt/apps/immich/docker-compose.yml "$REPO_DIR/lxc-apps/immich/docker-compose.yml"
 pct pull 100 /opt/apps/paperless/docker-compose.yml "$REPO_DIR/lxc-apps/paperless/docker-compose.yml"
 pct pull 100 /opt/mediastack/docker-compose.yml "$REPO_DIR/lxc-apps/mediastack/docker-compose.yml"
@@ -28,6 +29,8 @@ pct pull 100 /opt/apps/sparkyfitness/docker-compose.yml "$REPO_DIR/lxc-apps/spar
 pct pull 100 /opt/apps/uptimeKuma/docker-compose.yml "$REPO_DIR/lxc-apps/uptimeKuma/docker-compose.yml"
 pct pull 100 /opt/apps/portainer/docker-compose.yml "$REPO_DIR/lxc-apps/portainer/docker-compose.yml"
 pct pull 100 /opt/apps/watchtower/docker-compose.yml "$REPO_DIR/lxc-apps/watchtower/docker-compose.yml"
+pct pull 100 /opt/apps/crowdsec/docker-compose.yml "$REPO_DIR/lxc-apps/crowdsec/docker-compose.yml"
+pct pull 100 /opt/apps/crowdsec/acquis.yaml "$REPO_DIR/lxc-apps/crowdsec/acquis.yaml"
 
 echo "Syncing LXC 104 (LLM) configs..."
 pct pull 104 /root/odysseus/docker-compose.yml "$REPO_DIR/lxc-llm/docker-compose.yml"
