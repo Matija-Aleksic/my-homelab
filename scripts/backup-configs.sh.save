@@ -1,0 +1,182 @@
+#!/bin/bash
+set -Eeuo pipefail
+REPO_DIR="/root/homelab-git"
+LOG_FILE="/var/log/homelab-backup.log"
+exec > >(tee -i "$LOG_FILE") 2>&1
+echo "=== Backup started: $(date '+%Y-%m-%d %H:%M:%S') ==="
+if [[ $EUID -ne 0 ]]; then
+    echo "ERROR: Run this script as root."
+    exit 1
+fi
+
+command -v pct >/dev/null || {
+    echo "ERROR: pct not found. Run this on the Proxmox host."
+    exit 1
+}
+
+command -v gitleaks >/dev/null || {
+    echo "ERROR: gitleaks is not installed."
+    exit 1
+}
+
+cd "$REPO_DIR" || {
+    echo "ERROR: Repository not found: $REPO_DIR"
+    exit 1
+}
+
+# Prevent overlapping backups
+exec 9>/run/lock/homelab-backup.lock
+flock -n 9 || {
+    echo "Another backup is already running."
+    exit 1
+}
+
+# --------------------------------------------------
+# Backup function
+# --------------------------------------------------
+
+backup_lxc() {
+    local CTID="$1"
+    local SOURCE="$2"
+    local DEST="$3"
+
+    mkdir -p "$(dirname "$REPO_DIR/$DEST")"
+
+    echo "LXC $CTID: $SOURCE"
+
+    if ! pct pull "$CTID" "$SOURCE" "$REPO_DIR/$DEST"; then
+        echo "ERROR: Failed to backup $SOURCE from LXC $CTID"
+        exit 1
+    fi
+
+    if [[ ! -s "$REPO_DIR/$DEST" ]]; then
+        echo "ERROR: Backup is empty: $DEST"
+        exit 1
+    fi
+
+    echo "OK: $DEST"
+}
+
+# --------------------------------------------------
+# LXC 102 - Network
+# --------------------------------------------------
+
+echo
+echo "=== Backing up LXC 102 (Network) ==="
+
+backup_lxc 102 /root/adguard/docker-compose.yml \
+    lxc-network/adguard/docker-compose.yml
+
+backup_lxc 102 /etc/unbound/unbound.conf \
+    lxc-network/unbound/unbound.conf
+
+backup_lxc 102 /root/cloudflare/docker-compose.yml \
+    lxc-network/cloudflare/docker-compose.yml
+
+backup_lxc 102 /root/tailscale/docker-compose.yml \
+    lxc-network/tailscale/docker-compose.yml
+
+backup_lxc 102 /root/wyl/docker-compose.yml \
+    lxc-network/wyl/docker-compose.yml
+
+backup_lxc 102 /root/watchtower/docker-compose.yml \
+    lxc-network/watchtower/docker-compose.yml
+
+backup_lxc 102 /root/portainer/docker-compose.yml \
+    lxc-network/portainer/docker-compose.yml
+
+# --------------------------------------------------
+# LXC 100 - Applications
+# --------------------------------------------------
+
+echo
+echo "=== Backing up LXC 100 (Apps) ==="
+
+APP_FILES=(
+    /opt/apps/dockhand/docker-compose.yml
+    /opt/apps/forgejo/docker-compose.yml
+    /opt/apps/h2/docker-compose.yml
+    /opt/apps/homeassistant/docker-compose.yml
+    /opt/apps/java/docker-compose.yml
+    /opt/apps/immich/docker-compose.yml
+    /opt/apps/paperless/docker-compose.yml
+    /opt/apps/sparkyfitness/docker-compose.yml
+    /opt/apps/traefik/docker-compose.yml
+    /opt/apps/traefik/traefik.yml
+    /opt/apps/traefik/config/dynamic.yml
+    /opt/apps/uptimeKuma/docker-compose.yml
+    /opt/apps/watchtower/docker-compose.yml
+    /opt/mediastack/docker-compose.yml
+    /opt/llm/docker-compose.yml
+)
+
+for FILE in "${APP_FILES[@]}"; do
+    backup_lxc 100 "$FILE" "lxc-apps$FILE"
+done
+
+# CrowdSec configuration (if deployed)
+if pct exec 100 -- test -f /opt/apps/crowdsec/docker-compose.yml; then
+    backup_lxc 100 /opt/apps/crowdsec/docker-compose.yml \
+        lxc-apps/opt/apps/crowdsec/docker-compose.yml
+
+    backup_lxc 100 /opt/apps/crowdsec/acquis.yaml \
+        lxc-apps/opt/apps/crowdsec/acquis.yaml
+fi
+
+# --------------------------------------------------
+# LXC 104 - LLM
+# --------------------------------------------------
+
+echo
+echo "=== Backing up LXC 104 (LLM) ==="
+
+backup_lxc 104 /root/odysseus/docker-compose.yml \
+    lxc-llm/docker-compose.yml
+
+# --------------------------------------------------
+# Secret scanning
+# --------------------------------------------------
+
+echo
+echo "=== Scanning for leaked secrets ==="
+
+if ! gitleaks detect --source "$REPO_DIR" --no-git -v; then
+    echo "ERROR: Gitleaks detected a potential secret."
+    echo "Aborting backup commit."
+    exit 1
+fi
+
+# --------------------------------------------------
+# Git backup
+# --------------------------------------------------
+
+echo
+echo "=== Git backup ==="
+
+git add -A
+
+# Scan staged changes as well
+if ! gitleaks protect --staged --verbose; then
+    echo "ERROR: Secret detected in staged changes."
+    echo "Aborting commit and push."
+    exit 1
+fi
+
+if ! git diff --cached --quiet; then
+
+    echo "Changes detected. Committing..."
+
+    git commit -m "auto: homelab config backup $(date '+%Y-%m-%d %H:%M')"
+
+    echo "Pushing to GitHub..."
+
+    git push origin main
+
+    echo "Push complete."
+
+else
+    echo "No configuration changes detected."
+fi
+
+echo
+echo "=== Backup completed: $(date '+%Y-%m-%d %H:%M:%S') ==="
